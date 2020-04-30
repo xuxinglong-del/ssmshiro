@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+    <!--cookie的配置-->
+    <bean id="rememberMeCookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <!--只有http请求才使用cookie-->
+        <property name="httpOnly" value="true"/>
+        <!--设置cookie的存活时间   7天  单位为秒-->
+        <property name="maxAge" value="604800"/>
+    </bean>
+
+    <!--声明记住我的管理对象-->
+    <bean id="rememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+        <property name="cookie" ref="rememberMeCookie"/>
+    </bean>
+
+    <!--声明凭证匹配器-->
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+        <!--注入算法-->
+        <property name="hashAlgorithmName" value="md5"/>
+        <!--注入散列次数-->
+        <property name="hashIterations" value="2"/>
+    </bean>
+
+    <!--声明UserRealm-->
+    <bean id="userRealm" class="cn.xxl.realms.UserRealm">
+        <!--注入凭证匹配器-->
+        <property name="credentialsMatcher" ref="credentialsMatcher"/>
+    </bean>
+
+    <!--创建安全管理器-->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!--注入realm-->
+        <property name="realm" ref="userRealm"/>
+        <!--注入rememberMeManager-->
+        <property name="rememberMeManager" ref="rememberMeManager"/>
+    </bean>
+
+    <!--声明自定义记住我的过滤器-->
+    <bean id="rememberMeFilter" class="cn.xxl.filter.RememberMeFilter"/>
+
+    <!--配置过滤器链-->
+    <!--shiro的web过滤器 id必须和web.xml里面的shiroFilter的targetBeanName一样-->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <!--shiro核心安全接口，这个属性是必须的-->
+        <property name="securityManager" ref="securityManager"/>
+        <!--要求登录时的链接(登录页面地址)，非必须的属性，默认会自动寻找web工程下的"/login.jsp"页面-->
+        <!--<property name="loginUrl" value="/index.jsp"/>-->
+        <!--前后端分离的项目，登录时的配置-->
+        <property name="loginUrl" value="/common/unLogin.action"/>
+        <!--登录成功后要跳转的链接(本例中此属性用不到，因为登录成功后的处理逻辑在UserController里硬编码)-->
+        <!--<property name="successUrl" value="/success.action"/>-->
+        <!--用户访问未对其授权的资源时，所显示的链接-->
+        <property name="unauthorizedUrl" value="/unauthorized.jsp"/>
+        
+        <!--注入自定义过滤器-->
+        <property name="filters">
+            <map>
+                <entry key="rememberMe" value-ref="rememberMeFilter"/>
+                <!--注入自定义的登录过滤器-->
+                <entry key="authc">
+                    <bean class="cn.xxl.filter.ShiroLoginFilter"/>
+                </entry>
+            </map>
+        </property>
+        <!--过滤器链定义，从上向下执行，一般将/**放在最下边-->
+        <property name="filterChainDefinitions">
+            <value>
+                <!-- /** = authc 所有url必须认证通过才可以访问-->
+                <!-- /** = anon所有url都可以匿名访问 -->
+                <!--放行系统首页-->
+                /index.jsp*=anon
+                <!--放行跳转到登录页面的地-->
+                /login/toLogin*=anon
+                <!--放行登录的方法-->
+                /login/login*=anon
+
+                <!--如果用户访问user/logout就使用shiro注销session-->
+                /login/logout = logout
+
+                <!--其他页面都要认证-->
+                /**=rememberMe,user
+
+                <!-- /** = authc -->
+                <!-- /*/* = authc -->
+                <!-- /** = authc所有url都不可以匿名访问 必须放到最后面 -->
+                /** = authc
+            </value>
+        </property>
+    </bean>
+</beans>
