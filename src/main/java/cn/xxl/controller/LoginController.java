@@ -57,7 +57,7 @@ public class LoginController {
             System.err.println("用户名不存在");
             model.addAttribute("error", "用户名不存在");
         }
-        //重定向到
+        //重定向到登录页面
         return new ModelAndView("redirect:/login.jsp");
     }
 }
